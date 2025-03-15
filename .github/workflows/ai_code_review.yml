@@ -1,37 +1,57 @@
-name: AI Code Review
+name: AI Code Reviewer
 
 on:
   pull_request:
     branches:
-      - main  # Runs on PRs to the main branch
-  push:
-    branches:
-      - main  # Runs on direct pushes to main
+      - main  # Runs when a PR is opened/updated targeting main
 
 jobs:
   review_code:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🛠 Checkout Repository
+      - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: 🐍 Set up Python
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
 
-      - name: 📦 Install Dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt  # Ensure your repo has a requirements.txt
+          pip install -r requirements.txt
 
-      - name: 🔍 Run AI Code Review
+      - name: Run AI Code Reviewer
         run: |
+          source venv/bin/activate
           python src/review_code.py
 
-      - name: 📤 Upload AI Code Review Report
-        uses: actions/upload-artifact@v4
+      - name: Upload AI Code Review Report
+        uses: actions/upload-artifact@v3
         with:
           name: AI_Code_Review_Report
           path: code_review_report.md
+
+      - name: Post Review as Comment
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const review = fs.readFileSync('code_review_report.md', 'utf8');
+            const issue_number = context.payload.pull_request.number;
+            const repo_owner = context.repo.owner;
+            const repo_name = context.repo.repo;
+
+            if (!issue_number) {
+              console.log("Not triggered by a PR. Skipping comment.");
+            } else {
+              github.rest.issues.createComment({
+                owner: repo_owner,
+                repo: repo_name,
+                issue_number: issue_number,
+                body: review
+              });
+            }

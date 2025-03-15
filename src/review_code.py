@@ -11,6 +11,7 @@ local_llm = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.
 class CodeAnalyzer(ast.NodeVisitor):
     def __init__(self):
         self.issues = []
+        self.imports = set()
 
     def visit_FunctionDef(self, node):
         """Detects large functions that may need refactoring."""
@@ -24,6 +25,21 @@ class CodeAnalyzer(ast.NodeVisitor):
             self.issues.append((node.lineno, f"Hardcoded large number {node.value}. Consider defining it as a constant variable.", node))
         self.generic_visit(node)
 
+    def visit_Import(self, node):
+        """Tracks all imported modules."""
+        for alias in node.names:
+            self.imports.add(alias.name)
+        self.generic_visit(node)
+
+    def visit_Name(self, node):
+        """Removes used imports from tracking to find unused ones later."""
+        if node.id in self.imports:
+            self.imports.remove(node.id)
+
+    def report_unused_imports(self):
+        """Returns a list of unused imports detected in the script."""
+        return [(0, f"⚠️ Unused import detected: `{imp}`", None) for imp in self.imports]
+
 
 # ✅ Step 3: Function to Analyze Python Code
 def analyze_code(code):
@@ -31,7 +47,11 @@ def analyze_code(code):
         tree = ast.parse(code)
         analyzer = CodeAnalyzer()
         analyzer.visit(tree)
-        return analyzer.issues
+        
+        # Collect detected issues
+        issues = analyzer.issues
+        issues.extend(analyzer.report_unused_imports())  # Add unused import warnings
+        return issues
     except Exception as e:
         return [(0, f"Error parsing code: {e}", None)]
 
@@ -47,45 +67,56 @@ def get_ai_fix_local(code_snippet, issue_description):
         return ai_fix_cache[cache_key]  # Use cached result
 
     prompt = f"""
-    You are a Python code reviewer. Improve the following code based on the detected issue.
+    You are an AI code reviewer. Improve the following Python code based on the detected issue.
     
     Issue: {issue_description}
 
     Code:
     {code_snippet}
 
-    Please provide an improved version **inside a Python code block**, like this:
-    
+    Provide only the corrected code **inside a Python code block**.
+    Do not include explanations or unnecessary comments.
+
     ```python
-    # Fixed Code
+    # Corrected Code
     def optimized_function():
         ...
     ```
-    
-    Do **not** include unnecessary explanations—only the corrected code.
     """
 
     result = local_llm(prompt, max_new_tokens=50, num_return_sequences=1, truncation=True, return_full_text=False)
     ai_fix = result[0]["generated_text"].strip()
 
-    # Ensure the output contains a proper Python code block
+    # Ensure a proper Python block
     if "```python" not in ai_fix:
         ai_fix = f"```python\n{ai_fix}\n```"
+
+    # Remove redundant text
+    ai_fix = ai_fix.replace("Please ensure that the code block is indented properly", "").strip()
 
     ai_fix_cache[cache_key] = ai_fix  # Save fix to cache
     return ai_fix
 
 
-# ✅ Step 5: Save AI Fixes to a Markdown Report
+# ✅ Step 5: Save AI Fixes to a Markdown Report (Avoid Duplicates & Format Properly)
 def save_report(file_name, issues):
-    """ Save AI-generated fixes to a Markdown report. """
+    """ Save AI-generated fixes to a Markdown report, ensuring unique issues. """
+    seen_issues = set()  # Track unique issues
     with open("code_review_report.md", "a") as report:
         report.write(f"### 📝 Code Review for {file_name}\n\n")
-        if issues:
-            for line, issue, ai_fix in issues:
-                report.write(f"- **Line {line}:** {issue}\n")
-                report.write(f"  - **Suggested Fix:**\n```python\n{ai_fix}\n```\n\n")
-        else:
+        for line, issue, ai_fix in issues:
+            if issue in seen_issues:
+                continue  # Skip duplicate issues
+            seen_issues.add(issue)
+
+            # Ensure correct Python block formatting
+            ai_fix = ai_fix.replace("```python```python", "```python")  # Remove nested markers
+            ai_fix = ai_fix.strip("`")  # Remove extra backticks if needed
+
+            report.write(f"- **Line {line}:** {issue}\n")
+            report.write(f"  - **Suggested Fix:**\n```python\n{ai_fix}\n```\n\n")
+
+        if not issues:
             report.write("✅ No issues found.\n\n")
 
 
