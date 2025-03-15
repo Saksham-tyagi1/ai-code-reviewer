@@ -31,7 +31,7 @@ jobs:
           python src/review_code.py
 
       - name: 📤 Upload AI Code Review Report
-        uses: actions/upload-artifact@v3
+        uses: uses: actions/upload-artifact@v4
         with:
           name: AI_Code_Review_Report
           path: code_review_report.md
