@@ -3,29 +3,34 @@ import os
 from transformers import pipeline
 from prettytable import PrettyTable
 
-# ✅ Step 1: Load a Smaller, Faster LLM (TinyLlama-1.1B)
+# ✅ Load Local AI Model (TinyLlama-1.1B)
 print("✅ Loading Local LLM Model... (This may take a few minutes)")
 local_llm = pipeline("text-generation", model="TinyLlama/TinyLlama-1.1B-Chat-v1.0", device="cpu", torch_dtype="auto")
 
-# ✅ Step 2: Define AST-based Code Analyzer
+# ✅ Define AST-based Code Analyzer
 class CodeAnalyzer(ast.NodeVisitor):
     def __init__(self):
         self.issues = []
+        self.reported_issues = set()  # ✅ Prevent duplicate issues
 
     def visit_FunctionDef(self, node):
         """Detects large functions that may need refactoring."""
-        if len(node.body) > 10:  # If function has more than 10 lines
-            self.issues.append((node.lineno, f"Function '{node.name}' is too long ({len(node.body)} lines). Consider refactoring.", node))
+        issue = f"⚠️ Function '{node.name}' is too long ({len(node.body)} lines). Consider refactoring."
+        if len(node.body) > 10 and issue not in self.reported_issues:
+            self.issues.append((node.lineno, issue, node))
+            self.reported_issues.add(issue)
         self.generic_visit(node)
 
     def visit_Constant(self, node):
         """Detects hardcoded numeric values (magic numbers)."""
-        if isinstance(node.value, int) and node.value > 100:
-            self.issues.append((node.lineno, f"Hardcoded large number {node.value}. Consider defining it as a constant variable.", node))
+        issue = f"⚠️ Hardcoded large number {node.value}. Consider defining it as a constant variable."
+        if isinstance(node.value, int) and node.value > 100 and issue not in self.reported_issues:
+            self.issues.append((node.lineno, issue, node))
+            self.reported_issues.add(issue)
         self.generic_visit(node)
 
 
-# ✅ Step 3: Function to Analyze Python Code
+# ✅ Analyze Python Code Using AST
 def analyze_code(code):
     try:
         tree = ast.parse(code)
@@ -33,14 +38,42 @@ def analyze_code(code):
         analyzer.visit(tree)
         return analyzer.issues
     except Exception as e:
-        return [(0, f"Error parsing code: {e}", None)]
+        return [(0, f"❌ Error parsing code: {e}", None)]
 
 
-# ✅ Step 4: AI Fix System with Caching + 50 Token Limit
-ai_fix_cache = {}  # Cache dictionary for faster AI fixes
+# ✅ AI Fix System with Caching + Correct Formatting
+ai_fix_cache = {}
+
+def clean_ai_fix(ai_fix):
+    """Ensures AI fixes are properly formatted as Python code blocks."""
+    ai_fix = ai_fix.strip()
+
+    # ✅ Extract only the valid Python code block
+    if "```python" in ai_fix:
+        ai_fix = ai_fix.split("```python")[-1]  # Keep only the last code block
+    if "```" in ai_fix:
+        ai_fix = ai_fix.split("```")[0]  # Remove trailing text
+
+    # ✅ Fix indentation issues
+    ai_fix_lines = ai_fix.split("\n")
+    cleaned_lines = [line.strip() for line in ai_fix_lines if line.strip()]
+    
+    # ✅ Ensure indentation for function definitions
+    formatted_fix = []
+    for line in cleaned_lines:
+        if line.startswith("def "):  
+            formatted_fix.append(line)  # Keep function definition at top level
+        else:
+            formatted_fix.append("    " + line)  # Indent everything else properly
+
+    ai_fix = "\n".join(formatted_fix)
+
+    return f"```python\n{ai_fix}\n```"
+
+
 
 def get_ai_fix_local(code_snippet, issue_description):
-    """Returns AI-generated fixes, ensuring structured output."""
+    """Generates AI-powered fixes, ensuring structured output."""
     cache_key = (code_snippet, issue_description)
 
     if cache_key in ai_fix_cache:
@@ -48,7 +81,7 @@ def get_ai_fix_local(code_snippet, issue_description):
 
     prompt = f"""
     You are a Python code reviewer. Improve the following code based on the detected issue.
-    
+
     Issue: {issue_description}
 
     Code:
@@ -61,37 +94,45 @@ def get_ai_fix_local(code_snippet, issue_description):
     def optimized_function():
         ...
     ```
-    
+
     Do **not** include unnecessary explanations—only the corrected code.
     """
 
     result = local_llm(prompt, max_new_tokens=50, num_return_sequences=1, truncation=True, return_full_text=False)
     ai_fix = result[0]["generated_text"].strip()
 
-    # Ensure the output contains a proper Python code block
-    if "```python" not in ai_fix:
-        ai_fix = f"```python\n{ai_fix}\n```"
+    # ✅ Clean up AI-generated fix
+    ai_fix = clean_ai_fix(ai_fix)
 
-    ai_fix_cache[cache_key] = ai_fix  # Save fix to cache
+    ai_fix_cache[cache_key] = ai_fix
     return ai_fix
 
 
-# ✅ Step 5: Save AI Fixes to a Markdown Report
+# ✅ Save AI Fixes to Markdown Report (Ensuring Clean Reports)
+def initialize_report():
+    """Clears previous reports before generating new ones."""
+    with open("code_review_report.md", "w") as report:
+        report.write("# 📋 AI Code Review Report\n\n")
+
 def save_report(file_name, issues):
-    """ Save AI-generated fixes to a Markdown report. """
+    """Saves AI-generated fixes to `code_review_report.md`, ensuring formatting correctness."""
     with open("code_review_report.md", "a") as report:
         report.write(f"### 📝 Code Review for {file_name}\n\n")
+
         if issues:
+            seen_issues = set()  # ✅ Prevent duplicate reporting
             for line, issue, ai_fix in issues:
-                report.write(f"- **Line {line}:** {issue}\n")
-                report.write(f"  - **Suggested Fix:**\n```python\n{ai_fix}\n```\n\n")
+                if issue not in seen_issues:
+                    seen_issues.add(issue)
+                    report.write(f"- **Line {line}:** {issue}\n\n")
+                    report.write(f"  - **Suggested Fix:**\n\n{ai_fix}\n\n")
         else:
             report.write("✅ No issues found.\n\n")
 
 
-# ✅ Step 6: Analyze All `.py` Files in a Directory
+# ✅ Analyze All Python Files in the Directory
 def analyze_directory(directory_path):
-    """ Scan all Python files in a directory and analyze them. """
+    """Scans all Python files in a directory and ensures they are reviewed."""
     if not os.path.exists(directory_path):
         print(f"❌ Error: Directory '{directory_path}' does not exist!")
         return
@@ -123,9 +164,10 @@ def analyze_directory(directory_path):
             print("\n🚨 **Code Issues Detected & AI Fixes:**\n")
             print(table)
 
-        # Save report for each file
+        # ✅ Save review for each file
         save_report(filename, issue_list)
 
 
-# ✅ Step 7: Run the Batch Analysis (Ensure test files exist in `src/test_files`)
+# ✅ Run the Analysis on All Test Files
+initialize_report()  # ✅ Ensure old reports are cleared before analyzing
 analyze_directory("src/test_files")
