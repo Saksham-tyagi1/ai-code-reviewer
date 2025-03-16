@@ -80,14 +80,14 @@ def get_ai_fix_local(code_snippet, issue_description):
 
 
 # ✅ Step 5: Save AI Fixes to a Markdown Report
-def save_report(file_name, issues):
+def save_report(file_name, issues, clear_report=False):
     """ Save AI-generated fixes to a Markdown report, ensuring clean formatting and avoiding duplicates. """
     
-    # ✅ Clear report before writing new issues
-    if os.path.exists("code_review_report.md"):
+    # ✅ Clear report **only once at the beginning** before writing new issues
+    if clear_report and os.path.exists("code_review_report.md"):
         os.remove("code_review_report.md")
 
-    with open("code_review_report.md", "a") as report:
+    with open("code_review_report.md", "a") as report:  # ✅ Append instead of overwrite
         report.write(f"### 📝 Code Review for {file_name}\n\n")
 
         seen_issues = set()  # ✅ Prevent duplicate issues
@@ -122,6 +122,9 @@ def analyze_directory(directory_path):
         print("⚠️ No Python files found in the directory.")
         return
 
+    # ✅ Ensure report is cleared before writing new results
+    clear_report = True
+
     for filename in python_files:
         file_path = os.path.join(directory_path, filename)
         print(f"\n🔍 Analyzing: {filename}")
@@ -143,8 +146,9 @@ def analyze_directory(directory_path):
             print("\n🚨 **Code Issues Detected & AI Fixes:**\n")
             print(table)
 
-        # Save report for each file
-        save_report(filename, issue_list)
+        # ✅ Save report for each file **without overwriting**
+        save_report(filename, issue_list, clear_report)
+        clear_report = False  # Only clear the report on the first file
 
 
 # ✅ Step 7: Run the Batch Analysis (Ensure test files exist in `src/test_files`)
