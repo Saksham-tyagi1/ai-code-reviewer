@@ -95,6 +95,7 @@ def save_report(file_name, issues):
             report.write("✅ No issues found.\n\n")
 
 
+
 # ✅ Step 6: Analyze All `.py` Files in a Directory
 def analyze_directory(directory_path):
     """ Scan all Python files in a directory and analyze them. """
