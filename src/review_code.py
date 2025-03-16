@@ -68,7 +68,10 @@ def get_ai_fix_local(code_snippet, issue_description):
     result = local_llm(prompt, max_new_tokens=50, num_return_sequences=1, truncation=True, return_full_text=False)
     ai_fix = result[0]["generated_text"].strip()
 
-    # Ensure the output contains a proper Python code block
+    # ✅ Remove nested "```python```python" issues
+    ai_fix = ai_fix.replace("```python\n```python", "```python")
+
+    # ✅ Ensure the output contains a proper Python code block
     if "```python" not in ai_fix:
         ai_fix = f"```python\n{ai_fix}\n```"
 
@@ -76,11 +79,17 @@ def get_ai_fix_local(code_snippet, issue_description):
     return ai_fix
 
 
+# ✅ Step 5: Save AI Fixes to a Markdown Report
 def save_report(file_name, issues):
     """ Save AI-generated fixes to a Markdown report, ensuring clean formatting and avoiding duplicates. """
+    
+    # ✅ Clear report before writing new issues
+    if os.path.exists("code_review_report.md"):
+        os.remove("code_review_report.md")
+
     with open("code_review_report.md", "a") as report:
         report.write(f"### 📝 Code Review for {file_name}\n\n")
-        
+
         seen_issues = set()  # ✅ Prevent duplicate issues
         if issues:
             for line, issue, ai_fix in issues:
@@ -90,7 +99,7 @@ def save_report(file_name, issues):
 
                     # ✅ Fix AI-generated code block formatting
                     ai_fix_cleaned = ai_fix.replace("```python\n```python", "```python").strip()
-                    
+
                     # ✅ Ensure proper indentation & formatting
                     if not ai_fix_cleaned.startswith("```python"):
                         ai_fix_cleaned = f"```python\n{ai_fix_cleaned}\n```"
@@ -98,8 +107,6 @@ def save_report(file_name, issues):
                     report.write(f"  - **Suggested Fix:**\n\n{ai_fix_cleaned}\n\n")
         else:
             report.write("✅ No issues found.\n\n")
-
-
 
 
 # ✅ Step 6: Analyze All `.py` Files in a Directory
@@ -142,4 +149,3 @@ def analyze_directory(directory_path):
 
 # ✅ Step 7: Run the Batch Analysis (Ensure test files exist in `src/test_files`)
 analyze_directory("src/test_files")
-# Final Dummy Change
