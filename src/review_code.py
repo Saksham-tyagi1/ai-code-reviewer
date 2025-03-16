@@ -15,13 +15,13 @@ class CodeAnalyzer(ast.NodeVisitor):
     def visit_FunctionDef(self, node):
         """Detects large functions that may need refactoring."""
         if len(node.body) > 10:
-            self.issues.append((node.lineno, f"Function '{node.name}' is too long ({len(node.body)} lines). Consider refactoring.", node))
+            self.issues.append((node.lineno, f"⚠️ Function '{node.name}' is too long ({len(node.body)} lines). Consider refactoring.", node))
         self.generic_visit(node)
 
     def visit_Constant(self, node):
         """Detects hardcoded numeric values (magic numbers)."""
         if isinstance(node.value, int) and node.value > 100:
-            self.issues.append((node.lineno, f"Hardcoded large number {node.value}. Consider defining it as a constant variable.", node))
+            self.issues.append((node.lineno, f"⚠️ Hardcoded large number {node.value}. Consider defining it as a constant variable.", node))
         self.generic_visit(node)
 
 
@@ -33,7 +33,7 @@ def analyze_code(code):
         analyzer.visit(tree)
         return analyzer.issues
     except Exception as e:
-        return [(0, f"Error parsing code: {e}", None)]
+        return [(0, f"❌ Error parsing code: {e}", None)]
 
 
 # ✅ AI Fix System with Caching + Correct Formatting
@@ -79,13 +79,12 @@ def get_ai_fix_local(code_snippet, issue_description):
     return ai_fix
 
 
-# ✅ Save AI Fixes to Markdown Report (Fix Overwriting)
+# ✅ Save AI Fixes to Markdown Report (Clearing Old Data)
 def save_report(file_name, issues):
     """ Saves AI-generated fixes to `code_review_report.md`, ensuring formatting correctness. """
     
     report_file = "code_review_report.md"
-
-    # ✅ Do NOT delete old reports here (Fix overwriting issue)
+    
     with open(report_file, "a") as report:
         report.write(f"### 📝 Code Review for {file_name}\n\n")
 
@@ -95,13 +94,7 @@ def save_report(file_name, issues):
                 if issue not in seen_issues:
                     seen_issues.add(issue)
                     report.write(f"- **Line {line}:** {issue}\n\n")
-
-                    # ✅ Ensure AI fix is correctly formatted inside a Python code block
-                    ai_fix_cleaned = ai_fix.strip()
-                    if not ai_fix_cleaned.startswith("```python"):
-                        ai_fix_cleaned = f"```python\n{ai_fix_cleaned}\n```"
-
-                    report.write(f"  - **Suggested Fix:**\n\n{ai_fix_cleaned}\n\n")
+                    report.write(f"  - **Suggested Fix:**\n\n{ai_fix}\n\n")
         else:
             report.write("✅ No issues found.\n\n")
 
@@ -140,7 +133,7 @@ def analyze_directory(directory_path):
             print("\n🚨 **Code Issues Detected & AI Fixes:**\n")
             print(table)
 
-        # ✅ Append review for each file (Fix overwriting issue)
+        # ✅ Save review for each file
         save_report(filename, issue_list)
 
 
