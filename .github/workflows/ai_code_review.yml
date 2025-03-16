@@ -25,8 +25,10 @@ jobs:
 
       - name: Run AI Code Reviewer
         run: |
-          source venv/bin/activate
           python src/review_code.py
+
+      - name: Verify AI Code Review Report
+        run: ls -l code_review_report.md || echo "File not found!"
 
       - name: Upload AI Code Review Report
         uses: actions/upload-artifact@v3
@@ -40,14 +42,20 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const review = fs.readFileSync('code_review_report.md', 'utf8');
-            const issue_number = context.payload.pull_request.number;
+            const path = 'code_review_report.md';
+            const issue_number = context.payload.pull_request ? context.payload.pull_request.number : null;
             const repo_owner = context.repo.owner;
             const repo_name = context.repo.repo;
+
+            if (!fs.existsSync(path)) {
+              console.log("No review report found. Skipping comment.");
+              return;
+            }
 
             if (!issue_number) {
               console.log("Not triggered by a PR. Skipping comment.");
             } else {
+              const review = fs.readFileSync(path, 'utf8');
               github.rest.issues.createComment({
                 owner: repo_owner,
                 repo: repo_name,
