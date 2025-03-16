@@ -36,8 +36,8 @@ def analyze_code(code):
         return [(0, f"Error parsing code: {e}", None)]
 
 
-# ✅ Step 4: AI Fix System with Caching + 50 Token Limit
-ai_fix_cache = {}  # Cache dictionary for faster AI fixes
+# ✅ Step 4: AI Fix System with Caching + Proper Formatting
+ai_fix_cache = {}  # Cache dictionary for AI fixes
 
 def get_ai_fix_local(code_snippet, issue_description):
     """Returns AI-generated fixes, ensuring structured output."""
@@ -68,10 +68,8 @@ def get_ai_fix_local(code_snippet, issue_description):
     result = local_llm(prompt, max_new_tokens=50, num_return_sequences=1, truncation=True, return_full_text=False)
     ai_fix = result[0]["generated_text"].strip()
 
-    # ✅ Remove nested "```python```python" issues
-    ai_fix = ai_fix.replace("```python\n```python", "```python")
-
-    # ✅ Ensure the output contains a proper Python code block
+    # ✅ Ensure correct formatting
+    ai_fix = ai_fix.replace("```python\n```python", "```python")  # Fix nested issues
     if "```python" not in ai_fix:
         ai_fix = f"```python\n{ai_fix}\n```"
 
@@ -80,14 +78,14 @@ def get_ai_fix_local(code_snippet, issue_description):
 
 
 # ✅ Step 5: Save AI Fixes to a Markdown Report
-def save_report(file_name, issues, clear_report=False):
+def save_report(file_name, issues):
     """ Save AI-generated fixes to a Markdown report, ensuring clean formatting and avoiding duplicates. """
     
-    # ✅ Clear report **only once at the beginning** before writing new issues
-    if clear_report and os.path.exists("code_review_report.md"):
+    # ✅ Clear report before writing new issues
+    if os.path.exists("code_review_report.md"):
         os.remove("code_review_report.md")
 
-    with open("code_review_report.md", "a") as report:  # ✅ Append instead of overwrite
+    with open("code_review_report.md", "a") as report:
         report.write(f"### 📝 Code Review for {file_name}\n\n")
 
         seen_issues = set()  # ✅ Prevent duplicate issues
@@ -95,7 +93,7 @@ def save_report(file_name, issues, clear_report=False):
             for line, issue, ai_fix in issues:
                 if issue not in seen_issues:  # ✅ Ensure each issue is reported only once
                     seen_issues.add(issue)
-                    report.write(f"- **Line {line}:** {issue}\n")
+                    report.write(f"- **Line {line}:** {issue}\n\n")
 
                     # ✅ Fix AI-generated code block formatting
                     ai_fix_cleaned = ai_fix.replace("```python\n```python", "```python").strip()
@@ -122,9 +120,6 @@ def analyze_directory(directory_path):
         print("⚠️ No Python files found in the directory.")
         return
 
-    # ✅ Ensure report is cleared before writing new results
-    clear_report = True
-
     for filename in python_files:
         file_path = os.path.join(directory_path, filename)
         print(f"\n🔍 Analyzing: {filename}")
@@ -146,9 +141,8 @@ def analyze_directory(directory_path):
             print("\n🚨 **Code Issues Detected & AI Fixes:**\n")
             print(table)
 
-        # ✅ Save report for each file **without overwriting**
-        save_report(filename, issue_list, clear_report)
-        clear_report = False  # Only clear the report on the first file
+        # Save report for each file
+        save_report(filename, issue_list)
 
 
 # ✅ Step 7: Run the Batch Analysis (Ensure test files exist in `src/test_files`)
