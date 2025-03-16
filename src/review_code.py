@@ -69,25 +69,23 @@ def get_ai_fix_local(code_snippet, issue_description):
     ai_fix = result[0]["generated_text"].strip()
 
     # ✅ Fix formatting issues (e.g., duplicated python blocks)
-    ai_fix = ai_fix.replace("```python\n```python", "```python")
+    ai_fix = ai_fix.replace("```python\n```python", "```python").strip()
     
     # ✅ Ensure AI fix is correctly formatted inside a Python code block
-    if "```python" not in ai_fix:
+    if not ai_fix.startswith("```python"):
         ai_fix = f"```python\n{ai_fix}\n```"
 
     ai_fix_cache[cache_key] = ai_fix
     return ai_fix
 
 
-# ✅ Save AI Fixes to Markdown Report (Clearing Old Data)
+# ✅ Save AI Fixes to Markdown Report (Fix Overwriting)
 def save_report(file_name, issues):
     """ Saves AI-generated fixes to `code_review_report.md`, ensuring formatting correctness. """
     
-    # ✅ Remove old report before generating a new one
     report_file = "code_review_report.md"
-    if os.path.exists(report_file):
-        os.remove(report_file)
 
+    # ✅ Do NOT delete old reports here (Fix overwriting issue)
     with open(report_file, "a") as report:
         report.write(f"### 📝 Code Review for {file_name}\n\n")
 
@@ -142,7 +140,7 @@ def analyze_directory(directory_path):
             print("\n🚨 **Code Issues Detected & AI Fixes:**\n")
             print(table)
 
-        # ✅ Save review for each file
+        # ✅ Append review for each file (Fix overwriting issue)
         save_report(filename, issue_list)
 
 
