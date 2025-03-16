@@ -54,7 +54,13 @@ def clean_ai_fix(ai_fix):
     if "```" in ai_fix:
         ai_fix = ai_fix.split("```")[0]  # Remove trailing text
 
-    return f"```python\n{ai_fix.strip()}\n```"
+    # ✅ Fix indentation issues
+    ai_fix_lines = ai_fix.split("\n")
+    cleaned_lines = [line.strip() for line in ai_fix_lines if line.strip()]
+    ai_fix = "\n".join(cleaned_lines)
+
+    return f"```python\n{ai_fix}\n```"
+
 
 def get_ai_fix_local(code_snippet, issue_description):
     """Generates AI-powered fixes, ensuring structured output."""
