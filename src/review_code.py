@@ -77,22 +77,28 @@ def get_ai_fix_local(code_snippet, issue_description):
 
 
 def save_report(file_name, issues):
-    """ Save AI-generated fixes to a Markdown report, ensuring clean formatting. """
+    """ Save AI-generated fixes to a Markdown report, ensuring clean formatting and avoiding duplicates. """
     with open("code_review_report.md", "a") as report:
         report.write(f"### 📝 Code Review for {file_name}\n\n")
         
-        seen_issues = set()
+        seen_issues = set()  # ✅ Prevent duplicate issues
         if issues:
             for line, issue, ai_fix in issues:
-                if issue not in seen_issues:  # Prevent duplicate issues
+                if issue not in seen_issues:  # ✅ Ensure each issue is reported only once
                     seen_issues.add(issue)
                     report.write(f"- **Line {line}:** {issue}\n")
-                    
-                    # Ensure clean code block formatting
+
+                    # ✅ Fix AI-generated code block formatting
                     ai_fix_cleaned = ai_fix.replace("```python\n```python", "```python").strip()
+                    
+                    # ✅ Ensure proper indentation & formatting
+                    if not ai_fix_cleaned.startswith("```python"):
+                        ai_fix_cleaned = f"```python\n{ai_fix_cleaned}\n```"
+
                     report.write(f"  - **Suggested Fix:**\n\n{ai_fix_cleaned}\n\n")
         else:
             report.write("✅ No issues found.\n\n")
+
 
 
 
