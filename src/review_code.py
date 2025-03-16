@@ -76,15 +76,21 @@ def get_ai_fix_local(code_snippet, issue_description):
     return ai_fix
 
 
-# ✅ Step 5: Save AI Fixes to a Markdown Report
 def save_report(file_name, issues):
-    """ Save AI-generated fixes to a Markdown report. """
+    """ Save AI-generated fixes to a Markdown report, ensuring clean formatting. """
     with open("code_review_report.md", "a") as report:
         report.write(f"### 📝 Code Review for {file_name}\n\n")
+        
+        seen_issues = set()
         if issues:
             for line, issue, ai_fix in issues:
-                report.write(f"- **Line {line}:** {issue}\n")
-                report.write(f"  - **Suggested Fix:**\n```python\n{ai_fix}\n```\n\n")
+                if issue not in seen_issues:  # Prevent duplicate issues
+                    seen_issues.add(issue)
+                    report.write(f"- **Line {line}:** {issue}\n")
+                    
+                    # Ensure clean code block formatting
+                    ai_fix_cleaned = ai_fix.replace("```python\n```python", "```python").strip()
+                    report.write(f"  - **Suggested Fix:**\n\n{ai_fix_cleaned}\n\n")
         else:
             report.write("✅ No issues found.\n\n")
 
