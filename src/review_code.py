@@ -70,6 +70,8 @@ def get_ai_fix_local(code_snippet, issue_description):
 
     # ✅ Fix formatting issues (e.g., duplicated python blocks)
     ai_fix = ai_fix.replace("```python\n```python", "```python")
+    
+    # ✅ Ensure AI fix is correctly formatted inside a Python code block
     if "```python" not in ai_fix:
         ai_fix = f"```python\n{ai_fix}\n```"
 
@@ -96,7 +98,7 @@ def save_report(file_name, issues):
                     seen_issues.add(issue)
                     report.write(f"- **Line {line}:** {issue}\n\n")
 
-                    # ✅ Fix AI-generated code block formatting
+                    # ✅ Ensure AI fix is correctly formatted inside a Python code block
                     ai_fix_cleaned = ai_fix.strip()
                     if not ai_fix_cleaned.startswith("```python"):
                         ai_fix_cleaned = f"```python\n{ai_fix_cleaned}\n```"
