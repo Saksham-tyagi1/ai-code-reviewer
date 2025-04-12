@@ -26,12 +26,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt  # Ensure your repo has a requirements.txt
 
-      - name: 🔍 Run AI Code Review
+      - name: 🔍 Run AI Code Review API Server
         run: |
-          python src/review_code.py
+          python src/api/main.py &  # Start FastAPI server in the background
+          sleep 10  # Wait for the server to start
 
       - name: 📤 Upload AI Code Review Report
         uses: actions/upload-artifact@v4
         with:
           name: AI_Code_Review_Report
-          path: code_review_report.md
+          path: reports/code_review_report.md
