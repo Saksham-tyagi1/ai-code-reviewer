@@ -1,5 +1,49 @@
+# Ignore Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
 
+# Virtual environments
 venv/
-*.dylib
+env/
+
+# Large folders to skip
 CodeXGLUE/
-CodeXGLUE/
+codet5_finetuned/
+codet5_finetuned_final/
+models/
+notebooks/
+reports/
+
+# Logs and reports
+*.log
+code_review_report.md
+
+# Node + frontend
+node_modules/
+dist/
+
+# Misc
+.DS_Store
+.vscode/
+
+# Python junk
+__pycache__/
+*.pyc
+
+# Model files
+codet5_finetuned*
+*.pt
+*.bin
+
+# Data, logs, temp
+src/data/
+src/models/
+src/__pycache__/
+notebooks/
+reports/
+
+# Frontend build cache
+ai_code_reviewer_frontend/.next/
+ai_code_reviewer_frontend/node_modules/
+
